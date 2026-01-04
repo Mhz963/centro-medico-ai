@@ -22,11 +22,16 @@ class CallHandler:
     """Handles incoming calls and orchestrates conversation."""
     
     def __init__(self):
-        self.chatgpt = ChatGPTService()
-        self.stt = STTService()
-        self.tts = TTSService()
-        self.appointment_manager = AppointmentManager()
-        self.conversation_context: Dict[str, Any] = {}
+        try:
+            self.chatgpt = ChatGPTService()
+            self.stt = STTService()
+            self.tts = TTSService()
+            self.appointment_manager = AppointmentManager()
+            self.conversation_context: Dict[str, Any] = {}
+            logger.info("CallHandler initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing CallHandler: {e}")
+            raise
     
     def handle_call(self, call_sid: str, from_number: str) -> Dict[str, Any]:
         """Handle incoming call."""

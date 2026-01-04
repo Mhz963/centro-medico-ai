@@ -22,8 +22,39 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Centro Medico Gargano AI Voice Assistant")
 
-# Initialize call handler
-call_handler = CallHandler()
+# Initialize call handler with error handling
+try:
+    call_handler = CallHandler()
+    logger.info("Call handler initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize call handler: {e}")
+    call_handler = None
+
+@app.on_event("startup")
+async def startup_event():
+    """Check configuration on startup."""
+    logger.info("Application starting up...")
+    
+    # Check critical environment variables
+    missing_vars = []
+    if not config.OPENAI_API_KEY:
+        missing_vars.append("OPENAI_API_KEY")
+    if not config.TWILIO_ACCOUNT_SID:
+        missing_vars.append("TWILIO_ACCOUNT_SID")
+    if not config.TWILIO_API_KEY_SID:
+        missing_vars.append("TWILIO_API_KEY_SID")
+    if not config.TWILIO_API_KEY_SECRET:
+        missing_vars.append("TWILIO_API_KEY_SECRET")
+    
+    if missing_vars:
+        logger.warning(f"Missing environment variables: {', '.join(missing_vars)}")
+    else:
+        logger.info("All critical environment variables are set")
+    
+    if call_handler is None:
+        logger.error("Call handler failed to initialize - some features may not work")
+    else:
+        logger.info("Application ready to handle calls")
 
 @app.get("/")
 async def root():
@@ -41,6 +72,12 @@ async def voice_webhook(request: Request):
     Twilio webhook endpoint for incoming voice calls.
     This is where calls from FRITZ!Box will arrive.
     """
+    if call_handler is None:
+        logger.error("Call handler not initialized - cannot process call")
+        response = VoiceResponse()
+        response.say("Sorry, the service is temporarily unavailable.", language="it")
+        return Response(content=str(response), media_type="application/xml")
+    
     try:
         # Get form data from Twilio
         form_data = await request.form()
@@ -105,6 +142,12 @@ async def voice_webhook(request: Request):
 @app.post("/webhook/voice/process")
 async def process_voice(request: Request):
     """Process speech input from caller."""
+    if call_handler is None:
+        logger.error("Call handler not initialized - cannot process voice")
+        response = VoiceResponse()
+        response.say("Sorry, the service is temporarily unavailable.", language="it")
+        return Response(content=str(response), media_type="application/xml")
+    
     try:
         form_data = await request.form()
         speech_result = form_data.get("SpeechResult", "")
