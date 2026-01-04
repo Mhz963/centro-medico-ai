@@ -1,9 +1,16 @@
 """Google Calendar integration service."""
 import logging
+import sys
+import os
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
+
+# Add parent directory to path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
 from backend.config import config
-import os
 
 logger = logging.getLogger(__name__)
 

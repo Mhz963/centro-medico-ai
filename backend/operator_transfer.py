@@ -1,7 +1,15 @@
 """Operator transfer handling."""
 import logging
-from backend.config import config
+import sys
+import os
 from twilio.twiml.voice_response import VoiceResponse, Dial
+
+# Add parent directory to path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from backend.config import config
 
 logger = logging.getLogger(__name__)
 

@@ -1,20 +1,20 @@
 """Call handling and orchestration."""
 import logging
+import sys
+import os
 from typing import Dict, Any, Optional
-try:
-    from backend.config import config
-    from backend.chatgpt_service import ChatGPTService
-    from backend.stt_service import STTService
-    from backend.tts_service import TTSService
-    from backend.appointment_manager import AppointmentManager
-    from backend.business_rules import BusinessRules
-except ImportError:
-    from config import config
-    from chatgpt_service import ChatGPTService
-    from stt_service import STTService
-    from tts_service import TTSService
-    from appointment_manager import AppointmentManager
-    from business_rules import BusinessRules
+
+# Add parent directory to path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from backend.config import config
+from backend.chatgpt_service import ChatGPTService
+from backend.stt_service import STTService
+from backend.tts_service import TTSService
+from backend.appointment_manager import AppointmentManager
+from backend.business_rules import BusinessRules
 
 logger = logging.getLogger(__name__)
 

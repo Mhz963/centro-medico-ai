@@ -1,8 +1,16 @@
 """Text-to-Speech service using OpenAI TTS API."""
 import logging
-from openai import OpenAI
-from backend.config import config
+import sys
+import os
 import io
+from openai import OpenAI
+
+# Add parent directory to path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from backend.config import config
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,16 @@
 """ChatGPT service for conversation handling."""
 import logging
+import sys
 import os
 from openai import OpenAI
-from backend.config import config
 from typing import List, Dict, Any, Optional
+
+# Add parent directory to path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from backend.config import config
 
 logger = logging.getLogger(__name__)
 

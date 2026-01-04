@@ -1,4 +1,6 @@
 """Main FastAPI application for Centro Medico Gargano AI Voice Assistant."""
+import sys
+import os
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from twilio.twiml.voice_response import VoiceResponse, Gather
@@ -6,18 +8,13 @@ from twilio.request_validator import RequestValidator
 import logging
 from typing import Dict, Any
 
-try:
-    from backend.config import config
-    from backend.call_handler import CallHandler
-except ImportError:
-    # If running from backend directory directly
-    import sys
-    import os
-    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
-    from backend.config import config
-    from backend.call_handler import CallHandler
+# Add parent directory to path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from backend.config import config
+from backend.call_handler import CallHandler
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
