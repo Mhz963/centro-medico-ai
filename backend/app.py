@@ -66,6 +66,16 @@ async def health():
     """Health check endpoint."""
     return {"status": "healthy"}
 
+@app.get("/webhook/voice")
+async def voice_webhook_get():
+    """GET handler for webhook endpoint (for testing)."""
+    return JSONResponse({
+        "message": "This endpoint is for POST requests from Twilio",
+        "endpoint": "/webhook/voice",
+        "method": "POST",
+        "description": "Twilio webhook for incoming voice calls"
+    })
+
 @app.post("/webhook/voice")
 async def voice_webhook(request: Request):
     """
@@ -138,6 +148,16 @@ async def voice_webhook(request: Request):
         response = VoiceResponse()
         response.say("Mi dispiace, si è verificato un errore. La prego di richiamare.", language="it-IT", voice="alice")
         return Response(content=str(response), media_type="application/xml")
+
+@app.get("/webhook/voice/process")
+async def process_voice_get():
+    """GET handler for voice process endpoint (for testing)."""
+    return JSONResponse({
+        "message": "This endpoint is for POST requests from Twilio",
+        "endpoint": "/webhook/voice/process",
+        "method": "POST",
+        "description": "Processes speech input from caller"
+    })
 
 @app.post("/webhook/voice/process")
 async def process_voice(request: Request):
