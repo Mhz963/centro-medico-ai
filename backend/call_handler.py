@@ -136,6 +136,7 @@ class CallHandler:
             logger.info(f"ChatGPT response - text: {response.get('text', '')[:100]}...")
             logger.info(f"ChatGPT response - transfer_to_operator: {response.get('transfer_to_operator', False)}")
             logger.info(f"ChatGPT response - book_appointment: {response.get('book_appointment', False)}")
+            logger.info(f"User transcript: {transcript}")
             
             # Update history
             history.append({"role": "user", "content": transcript})

@@ -42,15 +42,17 @@ class OperatorTransfer:
         if message:
             response.say(message, language="it-IT", voice="alice")
         
-        dial = Dial()
+        dial = Dial(timeout=30, action="/webhook/voice/transfer-status", method="POST")
         
         if is_internal_extension and extension:
             # Transfer to internal FRITZ!Box extension (during business hours)
             # Format: **611 or **612 (asterisks are REQUIRED for FRITZ!Box feature codes)
             logger.info(f"Transferring to internal extension: {extension}")
-            # Ensure extension has ** prefix
+            # Ensure extension has ** prefix - CRITICAL for FRITZ!Box
             if not extension.startswith("**"):
                 extension = "**" + extension.lstrip("*")
+            logger.info(f"Final extension format: {extension}")
+            # Dial the extension directly - Twilio will send to FRITZ!Box
             dial.number(extension)
         elif operator_number:
             # Transfer to external number (out of hours mobile)

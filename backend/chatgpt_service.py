@@ -105,14 +105,16 @@ class ChatGPTService:
     
     def _should_transfer(self, response_text: str, user_message: str) -> bool:
         """Check if call should be transferred to operator."""
-        # Check user message for explicit operator requests
+        # Check user message for explicit operator requests (HIGH PRIORITY)
         user_lower = user_message.lower()
         user_transfer_keywords = [
             "operatore", "segretaria", "una persona", "parlare con qualcuno",
             "parlare con la segretaria", "voglio parlare con", "metto in contatto",
-            "trasferisci", "trasferire"
+            "trasferisci", "trasferire", "voglio un operatore", "voglio la segretaria",
+            "posso parlare con", "devo parlare con", "parlare con operatore"
         ]
         if any(keyword in user_lower for keyword in user_transfer_keywords):
+            logger.info(f"Transfer detected from user message: {user_message}")
             return True
         
         # Check response text for transfer indicators
@@ -121,12 +123,14 @@ class ChatGPTService:
             "metto in contatto",
             "metto subito in contatto",
             "trasferisco",
-            "non so",
-            "non ho questa informazione",
             "operatore",
             "segretaria"
         ]
-        return any(keyword in response_lower for keyword in transfer_keywords)
+        if any(keyword in response_lower for keyword in transfer_keywords):
+            logger.info(f"Transfer detected from response: {response_text}")
+            return True
+        
+        return False
     
     def _should_book_appointment(self, response_text: str, user_message: str) -> bool:
         """Check if appointment should be booked."""
@@ -136,7 +140,8 @@ class ChatGPTService:
             "visita", "visite",
             "disponibilità", "disponibile",
             "fissare", "fissiamo", "fisso",
-            "prenota", "prenotiamo"
+            "prenota", "prenotiamo", "vorrei prenotare", "voglio prenotare",
+            "fissare un appuntamento", "fissare appuntamento"
         ]
         user_lower = user_message.lower()
         response_lower = response_text.lower()
@@ -147,14 +152,18 @@ class ChatGPTService:
         # Check if response confirms booking or asks for details
         response_confirms = any([
             "prenot" in response_lower,
-            "appuntamento" in response_lower,
+            "appuntamento" in response_lower and ("prenot" in response_lower or "fiss" in response_lower),
             "fissiamo" in response_lower,
-            "disponibile" in response_lower and "quando" in response_lower,
-            "quando" in response_lower and ("visita" in response_lower or "appuntamento" in response_lower)
+            "disponibile" in response_lower and ("quando" in response_lower or "orario" in response_lower),
+            "quando" in response_lower and ("visita" in response_lower or "appuntamento" in response_lower),
+            "nome" in response_lower and ("appuntamento" in response_lower or "prenot" in response_lower)
         ])
         
         # If user wants to book and AI is confirming/asking details, proceed
-        return user_wants_booking and response_confirms
+        should_book = user_wants_booking and response_confirms
+        if should_book:
+            logger.info(f"Appointment booking detected - user: {user_message}, response: {response_text}")
+        return should_book
     
     def _extract_patient_name(self, user_message: str, response_text: str) -> Optional[str]:
         """Extract patient name from conversation."""
