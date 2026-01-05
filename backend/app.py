@@ -3,10 +3,11 @@ import sys
 import os
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
-from twilio.twiml.voice_response import VoiceResponse, Gather
+from twilio.twiml.voice_response import VoiceResponse, Gather, Play
 from twilio.request_validator import RequestValidator
 import logging
 from typing import Dict, Any
+from urllib.parse import quote
 
 # Add parent directory to path for imports
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -15,6 +16,7 @@ if parent_dir not in sys.path:
 
 from backend.config import config
 from backend.call_handler import CallHandler
+from backend.tts_service import TTSService
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +31,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to initialize call handler: {e}")
     call_handler = None
+
+# Initialize TTS service for natural voice
+try:
+    tts_service = TTSService()
+    logger.info("TTS service initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize TTS service: {e}")
+    tts_service = None
 
 @app.on_event("startup")
 async def startup_event():
@@ -65,6 +75,39 @@ async def root():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+@app.get("/audio/tts")
+async def get_tts_audio(request: Request):
+    """
+    Generate and serve OpenAI TTS audio for natural Italian voice.
+    Query parameter: text (URL encoded)
+    """
+    if tts_service is None:
+        return Response(content="TTS service not available", status_code=503)
+    
+    try:
+        text = request.query_params.get("text", "")
+        if not text:
+            return Response(content="Missing text parameter", status_code=400)
+        
+        # Generate audio using OpenAI TTS
+        audio_bytes = tts_service.synthesize(text, language="it")
+        
+        if not audio_bytes:
+            return Response(content="Failed to generate audio", status_code=500)
+        
+        # Return audio as MP3
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "inline; filename=tts.mp3",
+                "Cache-Control": "no-cache"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating TTS audio: {e}")
+        return Response(content=f"Error: {str(e)}", status_code=500)
 
 @app.get("/webhook/voice")
 async def voice_webhook_get():
@@ -103,13 +146,14 @@ async def voice_webhook(request: Request):
         # Create TwiML response
         response = VoiceResponse()
         
-        # Say greeting or message
+        # Say greeting or message using OpenAI TTS for natural voice
         if call_result.get("action") == "say":
-            response.say(
-                call_result.get("text", "Buongiorno, Centro Medico Gargano, come posso aiutarla?"),
-                language="it-IT",
-                voice="alice"
-            )
+            text_to_speak = call_result.get("text", "Buongiorno, Centro Medico Gargano, come posso aiutarla?")
+            # Use OpenAI TTS endpoint for natural Italian voice
+            # Get base URL from request
+            base_url = str(request.base_url).rstrip('/')
+            tts_url = f"{base_url}/audio/tts?text={quote(text_to_speak)}"
+            response.play(tts_url)
         
         # If transfer needed (operator request)
         if call_result.get("transfer"):
@@ -127,6 +171,7 @@ async def voice_webhook(request: Request):
             return Response(content=transfer_response, media_type="application/xml")
         
         # Gather user input (speech) - Twilio's built-in speech recognition
+        # bargeIn=True allows caller to interrupt TTS immediately
         gather = Gather(
             input="speech",
             language="it-IT",
@@ -134,12 +179,17 @@ async def voice_webhook(request: Request):
             action="/webhook/voice/process",
             method="POST",
             timeout=10,
-            bargeIn=True
+            bargeIn=True,
+            partial_result_callback="/webhook/voice/process",
+            partial_result_callback_method="POST"
         )
         response.append(gather)
         
-        # If no input, repeat
-        response.say("Non ho capito, può ripetere?", language="it-IT", voice="alice")
+        # If no input, repeat using OpenAI TTS
+        repeat_text = "Non ho capito, può ripetere?"
+        base_url = str(request.base_url).rstrip('/')
+        tts_url = f"{base_url}/audio/tts?text={quote(repeat_text)}"
+        response.play(tts_url)
         response.redirect("/webhook/voice")
         
         return Response(content=str(response), media_type="application/xml")
@@ -147,7 +197,10 @@ async def voice_webhook(request: Request):
     except Exception as e:
         logger.error(f"Error in voice webhook: {e}", exc_info=True)
         response = VoiceResponse()
-        response.say("Mi dispiace, si è verificato un errore. La prego di richiamare.", language="it-IT", voice="alice")
+        error_text = "Mi dispiace, si è verificato un errore. La prego di richiamare."
+        base_url = str(request.base_url).rstrip('/')
+        tts_url = f"{base_url}/audio/tts?text={quote(error_text)}"
+        response.play(tts_url)
         return Response(content=str(response), media_type="application/xml")
 
 @app.get("/webhook/voice/process")
@@ -177,10 +230,11 @@ async def process_voice(request: Request):
         logger.info(f"Processing speech - CallSID: {call_sid}, Speech: {speech_result}")
         
         if not speech_result:
-            # No speech detected, ask to repeat
+            # No speech detected, ask to repeat using OpenAI TTS
             response = VoiceResponse()
-            response.say("Non ho capito, può ripetere?", language="it-IT", voice="alice")
-            response.say("Non ho capito, può ripetere?", language="it-IT", voice="alice")
+            repeat_text = "Non ho capito, può ripetere?"
+            base_url = str(request.base_url).rstrip('/')
+            tts_url = f"{base_url}/audio/tts?text={quote(repeat_text)}"
             gather = Gather(
                 input="speech",
                 language="it-IT",
@@ -190,7 +244,11 @@ async def process_voice(request: Request):
                 timeout=10,
                 bargeIn=True
             )
+            gather.play(tts_url)
             response.append(gather)
+            # Fallback if no input
+            response.play(tts_url)
+            response.redirect("/webhook/voice/process")
             return Response(content=str(response), media_type="application/xml")
         
         # Process speech with ChatGPT (Twilio already did STT, so we use the text directly)
@@ -216,32 +274,38 @@ async def process_voice(request: Request):
             return Response(content=transfer_response, media_type="application/xml")
         
         elif call_result.get("action") == "say":
-            # Say response
-            response.say(
-                call_result.get("text", "Mi dispiace, non ho capito."),
-                language="it-IT",
-                voice="alice"
-            )
+            # Say response using OpenAI TTS for natural voice
+            text_to_speak = call_result.get("text", "Mi dispiace, non ho capito.")
+            base_url = str(request.base_url).rstrip('/')
+            tts_url = f"{base_url}/audio/tts?text={quote(text_to_speak)}"
+            response.play(tts_url)
         
         # Check if call should end (e.g., appointment booked, goodbye)
         if call_result.get("end_call", False):
-            response.say("Le auguro una buona giornata. Arrivederci.", language="it-IT", voice="alice")
+            goodbye_text = "Le auguro una buona giornata. Arrivederci."
+            base_url = str(request.base_url).rstrip('/')
+            tts_url = f"{base_url}/audio/tts?text={quote(goodbye_text)}"
+            response.play(tts_url)
             response.hangup()
             return Response(content=str(response), media_type="application/xml")
         
-        # Continue gathering for next input
+        # Continue gathering for next input with barge-in enabled
         gather = Gather(
             input="speech",
             language="it-IT",
             speech_timeout="auto",
             action="/webhook/voice/process",
             method="POST",
-            timeout=10
+            timeout=10,
+            bargeIn=True
         )
         response.append(gather)
         
         # Timeout fallback
-        response.say("Non ho capito, può ripetere?", language="it-IT", voice="alice")
+        timeout_text = "Non ho capito, può ripetere?"
+        base_url = str(request.base_url).rstrip('/')
+        tts_url = f"{base_url}/audio/tts?text={quote(timeout_text)}"
+        response.play(tts_url)
         response.redirect("/webhook/voice/process")
         
         return Response(content=str(response), media_type="application/xml")
@@ -249,14 +313,19 @@ async def process_voice(request: Request):
     except Exception as e:
         logger.error(f"Error processing voice: {e}", exc_info=True)
         response = VoiceResponse()
-        response.say("Mi dispiace, si è verificato un errore. Può ripetere?", language="it-IT", voice="alice")
+        error_text = "Mi dispiace, si è verificato un errore. Può ripetere?"
+        base_url = str(request.base_url).rstrip('/')
+        tts_url = f"{base_url}/audio/tts?text={quote(error_text)}"
         gather = Gather(
             input="speech",
             language="it-IT",
             speech_timeout="auto",
             action="/webhook/voice/process",
-            method="POST"
+            method="POST",
+            timeout=10,
+            bargeIn=True
         )
+        gather.play(tts_url)
         response.append(gather)
         return Response(content=str(response), media_type="application/xml")
 

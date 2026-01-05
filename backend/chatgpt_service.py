@@ -105,32 +105,55 @@ class ChatGPTService:
     
     def _should_transfer(self, response_text: str, user_message: str) -> bool:
         """Check if call should be transferred to operator."""
+        # Check user message for explicit operator requests
+        user_lower = user_message.lower()
+        user_transfer_keywords = [
+            "operatore", "segretaria", "una persona", "parlare con qualcuno",
+            "parlare con la segretaria", "voglio parlare con", "metto in contatto",
+            "trasferisci", "trasferire"
+        ]
+        if any(keyword in user_lower for keyword in user_transfer_keywords):
+            return True
+        
+        # Check response text for transfer indicators
+        response_lower = response_text.lower()
         transfer_keywords = [
             "metto in contatto",
-            "operatore",
+            "metto subito in contatto",
             "trasferisco",
             "non so",
-            "non ho questa informazione"
+            "non ho questa informazione",
+            "operatore",
+            "segretaria"
         ]
-        return any(keyword in response_text.lower() for keyword in transfer_keywords)
+        return any(keyword in response_lower for keyword in transfer_keywords)
     
     def _should_book_appointment(self, response_text: str, user_message: str) -> bool:
         """Check if appointment should be booked."""
         booking_keywords = [
-            "prenotare",
-            "appuntamento",
-            "visita",
-            "disponibilità",
-            "fissare",
-            "prenotazione"
+            "prenotare", "prenotazione", "prenotato", "prenotiamo",
+            "appuntamento", "appuntamenti",
+            "visita", "visite",
+            "disponibilità", "disponibile",
+            "fissare", "fissiamo", "fisso",
+            "prenota", "prenotiamo"
         ]
         user_lower = user_message.lower()
         response_lower = response_text.lower()
         
-        # Check if user wants to book AND response confirms booking
+        # Check if user explicitly wants to book
         user_wants_booking = any(keyword in user_lower for keyword in booking_keywords)
-        response_confirms = "prenot" in response_lower or "appuntamento" in response_lower
         
+        # Check if response confirms booking or asks for details
+        response_confirms = any([
+            "prenot" in response_lower,
+            "appuntamento" in response_lower,
+            "fissiamo" in response_lower,
+            "disponibile" in response_lower and "quando" in response_lower,
+            "quando" in response_lower and ("visita" in response_lower or "appuntamento" in response_lower)
+        ])
+        
+        # If user wants to book and AI is confirming/asking details, proceed
         return user_wants_booking and response_confirms
     
     def _extract_patient_name(self, user_message: str, response_text: str) -> Optional[str]:

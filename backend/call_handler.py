@@ -133,6 +133,10 @@ class CallHandler:
                 conversation_history=history
             )
             
+            logger.info(f"ChatGPT response - text: {response.get('text', '')[:100]}...")
+            logger.info(f"ChatGPT response - transfer_to_operator: {response.get('transfer_to_operator', False)}")
+            logger.info(f"ChatGPT response - book_appointment: {response.get('book_appointment', False)}")
+            
             # Update history
             history.append({"role": "user", "content": transcript})
             history.append({"role": "assistant", "content": response["text"]})
@@ -179,16 +183,33 @@ class CallHandler:
             
             # Check if appointment booking
             if response.get("book_appointment", False):
+                logger.info("Attempting to book appointment...")
                 appointment_result = self.appointment_manager.create_appointment(
                     patient_name=response.get("patient_name"),
                     patient_phone=context.get("from_number", ""),
                     visit_type=response.get("visit_type")
                 )
                 
-                if appointment_result["success"]:
+                logger.info(f"Appointment booking result: {appointment_result}")
+                
+                if appointment_result.get("success", False):
+                    # Format time naturally in Italian (e.g., "le nove" instead of "09:00")
+                    time_str = appointment_result.get('time', '')
+                    # Convert 09:00 to "le nove", 15:30 to "le quindici e trenta", etc.
+                    try:
+                        hour, minute = time_str.split(':')
+                        hour_int = int(hour)
+                        minute_int = int(minute)
+                        if minute_int == 0:
+                            time_natural = f"le {hour_int}" if hour_int < 13 else f"le {hour_int}"
+                        else:
+                            time_natural = f"le {hour_int} e {minute_int}"
+                    except:
+                        time_natural = time_str
+                    
                     return {
                         "action": "say",
-                        "text": f"Perfetto, ho prenotato l'appuntamento per {appointment_result['date']} alle {appointment_result['time']}. Posso aiutarla in altro?",
+                        "text": f"Perfetto, ho prenotato l'appuntamento per {appointment_result['date']} alle {time_natural}. Posso aiutarla in altro?",
                         "transfer": False,
                         "end_call": False
                     }

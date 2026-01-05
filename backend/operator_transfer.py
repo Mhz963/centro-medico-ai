@@ -46,18 +46,24 @@ class OperatorTransfer:
         
         if is_internal_extension and extension:
             # Transfer to internal FRITZ!Box extension (during business hours)
-            # Format: **611 or **612
+            # Format: **611 or **612 (asterisks are REQUIRED for FRITZ!Box feature codes)
             logger.info(f"Transferring to internal extension: {extension}")
+            # Ensure extension has ** prefix
+            if not extension.startswith("**"):
+                extension = "**" + extension.lstrip("*")
             dial.number(extension)
         elif operator_number:
             # Transfer to external number (out of hours mobile)
             # If via_number is specified, we'll use it for routing
             logger.info(f"Transferring to {operator_number} via {via_number or 'default'}")
-        dial.number(operator_number)
+            dial.number(operator_number)
         else:
             # Fallback: try to use configured operator extension
             logger.warning("No operator number specified, using default extension")
-            dial.number(config.OPERATOR_EXTENSION_1)
+            fallback_ext = config.OPERATOR_EXTENSION_1
+            if not fallback_ext.startswith("**"):
+                fallback_ext = "**" + fallback_ext.lstrip("*")
+            dial.number(fallback_ext)
         
         response.append(dial)
         

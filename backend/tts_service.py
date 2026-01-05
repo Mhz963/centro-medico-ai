@@ -19,8 +19,10 @@ class TTSService:
     
     def __init__(self):
         self.client = OpenAI(api_key=config.OPENAI_API_KEY)
-        self.voice = "nova"  # Good Italian voice
-        self.model = "tts-1"  # Fast model
+        # Use "nova" voice for natural, warm Italian female voice
+        # "alloy", "echo", "fable", "onyx", "nova", "shimmer" - nova is best for Italian
+        self.voice = "nova"  # Natural Italian female voice
+        self.model = "tts-1"  # Fast model (tts-1-hd for higher quality but slower)
     
     def synthesize(self, text: str, language: str = "it") -> bytes:
         """
