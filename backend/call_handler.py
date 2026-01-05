@@ -151,6 +151,10 @@ class CallHandler:
                     transfer_number = config.OUT_OF_HOURS_TRANSFER_NUMBER
                     is_internal = False
                     extension = None
+                    transfer_text = (
+                        "Centro Medico Gargano è attualmente chiuso, "
+                        "ma la metto in contatto con l’operatore reperibile."
+                    )
                     logger.info(f"Out of hours transfer: Using {transfer_number} to reach {transfer_to}")
                 else:
                     # Business hours: transfer to internal extension
@@ -159,11 +163,12 @@ class CallHandler:
                     extension = config.OPERATOR_EXTENSION_1  # Default to **611
                     transfer_to = None
                     transfer_number = None
+                    transfer_text = "Certo, la metto subito in contatto con la segreteria."
                     logger.info(f"Business hours transfer: Using internal extension {extension}")
                 
                 return {
                     "action": "transfer",
-                    "text": "Un attimo, la metto in contatto con un operatore.",
+                    "text": transfer_text,
                     "transfer": True,
                     "transfer_to": transfer_to,
                     "is_internal_extension": is_internal,
@@ -196,7 +201,8 @@ class CallHandler:
                         # Out of hours transfer
                         return {
                             "action": "transfer",
-                            "text": "Mi dispiace, non sono riuscita a prenotare l'appuntamento. La metto in contatto con un operatore.",
+                            "text": "Mi dispiace, non sono riuscita a prenotare l'appuntamento. "
+                                    "La metto in contatto con l’operatore reperibile.",
                             "transfer": True,
                             "transfer_to": config.OUT_OF_HOURS_MOBILE,
                             "is_internal_extension": False,
@@ -208,7 +214,8 @@ class CallHandler:
                         # Business hours - internal extension
                         return {
                             "action": "transfer",
-                            "text": "Mi dispiace, non sono riuscita a prenotare l'appuntamento. La metto in contatto con un operatore.",
+                            "text": "Mi dispiace, non sono riuscita a prenotare l'appuntamento. "
+                                    "La metto in contatto con la segreteria.",
                             "transfer": True,
                             "transfer_to": None,
                             "is_internal_extension": True,

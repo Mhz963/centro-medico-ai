@@ -111,7 +111,7 @@ async def voice_webhook(request: Request):
                 voice="alice"
             )
         
-        # If transfer needed (shouldn't happen on first call, but handle it)
+        # If transfer needed (operator request)
         if call_result.get("transfer"):
             try:
                 from backend.operator_transfer import OperatorTransfer
@@ -133,7 +133,8 @@ async def voice_webhook(request: Request):
             speech_timeout="auto",
             action="/webhook/voice/process",
             method="POST",
-            timeout=10
+            timeout=10,
+            bargeIn=True
         )
         response.append(gather)
         
@@ -179,13 +180,15 @@ async def process_voice(request: Request):
             # No speech detected, ask to repeat
             response = VoiceResponse()
             response.say("Non ho capito, può ripetere?", language="it-IT", voice="alice")
+            response.say("Non ho capito, può ripetere?", language="it-IT", voice="alice")
             gather = Gather(
                 input="speech",
                 language="it-IT",
                 speech_timeout="auto",
                 action="/webhook/voice/process",
                 method="POST",
-                timeout=10
+                timeout=10,
+                bargeIn=True
             )
             response.append(gather)
             return Response(content=str(response), media_type="application/xml")
