@@ -130,7 +130,24 @@ async def voice_webhook_get():
         "description": "Twilio webhook for incoming voice calls"
     })
 
+# Compatibility routes:
+# Some Twilio console setups accidentally point to `/webhook` or add a trailing slash.
+# We accept those and route to the same handlers so Twilio always receives valid TwiML.
+@app.get("/webhook")
+@app.get("/webhook/")
+async def webhook_root_get():
+    """GET handler for legacy/short webhook endpoint (for testing)."""
+    return JSONResponse({
+        "message": "This endpoint is for POST requests from Twilio",
+        "endpoint": "/webhook",
+        "recommended_endpoint": "/webhook/voice",
+        "method": "POST"
+    })
+
 @app.post("/webhook/voice")
+@app.post("/webhook/voice/")
+@app.post("/webhook")
+@app.post("/webhook/")
 async def voice_webhook(request: Request):
     """
     Twilio webhook endpoint for incoming voice calls.
@@ -283,6 +300,50 @@ async def voice_webhook(request: Request):
         gather.say("Non ho capito, può ripetere?", language="it-IT", voice="alice")
         response.append(gather)
         return Response(content=str(response), media_type="application/xml", headers={"Content-Type": "text/xml"})
+
+
+@app.get("/webhook/voice/transfer-status")
+@app.get("/webhook/voice/transfer-status/")
+async def transfer_status_get():
+    """GET handler for transfer status endpoint (for testing)."""
+    return JSONResponse({
+        "message": "This endpoint is for POST requests from Twilio Dial action callback",
+        "endpoint": "/webhook/voice/transfer-status",
+        "method": "POST"
+    })
+
+
+@app.post("/webhook/voice/transfer-status")
+@app.post("/webhook/voice/transfer-status/")
+async def transfer_status(request: Request):
+    """
+    Twilio Dial action callback endpoint.
+    MUST return valid TwiML to avoid Twilio 'application error' after transfer attempts.
+    """
+    try:
+        form_data = await request.form()
+    except Exception:
+        form_data = {}
+
+    dial_call_status = form_data.get("DialCallStatus", "")
+    call_sid = form_data.get("CallSid", "")
+    logger.info(f"Transfer status callback - CallSID: {call_sid}, DialCallStatus: {dial_call_status}")
+
+    response = VoiceResponse()
+
+    # If transfer failed or no-answer, fall back to the assistant flow
+    if dial_call_status and dial_call_status.lower() not in ("completed", "answered"):
+        response.say(
+            "Mi dispiace, non riesco a metterla in contatto in questo momento. Posso aiutarla io?",
+            language="it-IT",
+            voice="alice",
+        )
+        response.redirect("/webhook/voice")
+        return Response(content=str(response), media_type="application/xml", headers={"Content-Type": "text/xml"})
+
+    # If transfer completed, end gracefully
+    response.hangup()
+    return Response(content=str(response), media_type="application/xml", headers={"Content-Type": "text/xml"})
 
 @app.get("/webhook/voice/process")
 async def process_voice_get():
